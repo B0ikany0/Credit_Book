@@ -190,7 +190,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
                             ),
                             const SizedBox(height: 18),
                           ],
-                          _FieldLabel('Price (R)', compact: compact),
+                          _FieldLabel('Amount (R)', compact: compact),
                           const SizedBox(height: 6),
                           RoundedInput(
                             controller: amountController,
