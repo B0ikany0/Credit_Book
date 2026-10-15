@@ -12,6 +12,7 @@ class CreateAccountPage extends StatefulWidget {
 
 class _CreateAccountPageState extends State<CreateAccountPage> {
   final fullNameController = TextEditingController();
+  final emailController = TextEditingController();
   final businessNameController = TextEditingController();
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
@@ -24,8 +25,12 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
       passwordController.text == confirmPasswordController.text;
   bool get isPasswordValid =>
       passwordRules(passwordController.text).every((rule) => rule.isValid);
+  bool get isEmailValid =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+          .hasMatch(emailController.text.trim());
   bool get formValid =>
       fullNameController.text.trim().isNotEmpty &&
+      isEmailValid &&
       businessNameController.text.trim().isNotEmpty &&
       phoneController.text.trim().isNotEmpty &&
       isPasswordValid &&
@@ -37,6 +42,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     super.initState();
     for (final controller in [
       fullNameController,
+      emailController,
       businessNameController,
       phoneController,
       passwordController,
@@ -54,6 +60,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   void dispose() {
     for (final controller in [
       fullNameController,
+      emailController,
       businessNameController,
       phoneController,
       passwordController,
@@ -62,6 +69,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
       controller.removeListener(_handleFormChanged);
     }
     fullNameController.dispose();
+    emailController.dispose();
     businessNameController.dispose();
     phoneController.dispose();
     passwordController.dispose();
@@ -99,9 +107,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                         vertical: compact ? 12 : 18,
                       ),
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0E2C75),
-                        borderRadius: BorderRadius.only(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0E2C75),
+                        borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(24),
                           topRight: Radius.circular(24),
                         ),
@@ -142,6 +150,21 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                       controller: fullNameController,
                       hintText: 'Full name',
                       obscureText: false,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Email Address',
+                      style: TextStyle(
+                        fontSize: compact ? 20 : 26,
+                        color: const Color(0xFF1F1F1F),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    RoundedInput(
+                      controller: emailController,
+                      hintText: 'Enter email address',
+                      obscureText: false,
+                      keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 18),
                     Text(
