@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/credit_book_brand_header.dart';
 import '../widgets/form_widgets.dart';
 import 'create_account_page.dart';
 import 'dashboard_page.dart';
@@ -66,32 +67,7 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
-                    Center(
-                      child: Column(
-                        children: [
-                          Text(
-                            'CreditBook',
-                            style: TextStyle(
-                              fontSize: compact ? 44 : 60,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0E2C75),
-                              letterSpacing: -2.2,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'manage credit sales easily',
-                            style: TextStyle(
-                              fontSize: compact ? 20 : 28,
-                              fontWeight: FontWeight.w300,
-                              color: const Color(0xFF1E1E1E)
-                                  .withValues(alpha: 0.72),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    CreditBookBrandHeader(compact: compact),
                     SizedBox(height: compact ? 30 : 42),
                     Text(
                       'Username',
