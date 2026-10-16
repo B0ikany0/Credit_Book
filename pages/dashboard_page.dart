@@ -303,6 +303,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           Expanded(
                             child: NavItem(
                               label: 'Home',
+                              icon: Icons.home_rounded,
                               selected: _selectedNavIndex == 0,
                               onTap: () =>
                                   setState(() => _selectedNavIndex = 0),
@@ -311,6 +312,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           Expanded(
                             child: NavItem(
                               label: 'Reports',
+                              icon: Icons.bar_chart_rounded,
                               selected: _selectedNavIndex == 1,
                               onTap: () =>
                                   setState(() => _selectedNavIndex = 1),
@@ -319,6 +321,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           Expanded(
                             child: NavItem(
                               label: 'Customers',
+                              icon: Icons.people_alt_outlined,
                               selected: _selectedNavIndex == 2,
                               onTap: () =>
                                   setState(() => _selectedNavIndex = 2),
