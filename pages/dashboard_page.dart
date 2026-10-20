@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'dart:math' as math;
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models/credit_payment.dart';
 import '../models/credit_sale.dart';
 import '../models/customer.dart';
+import '../models/reminder.dart';
+import '../services/pdf_services.dart';
+import '../services/reminder_scheduler.dart';
+import '../services/reminder_service.dart';
 import '../widgets/form_widgets.dart';
-import 'add_customer_page.dart';
+import 'add_customers_page.dart';
 import 'customer_statement_page.dart';
 import 'payment_pages.dart';
 import 'profile_page.dart';
@@ -34,6 +40,12 @@ class _DashboardPageState extends State<DashboardPage> {
   final searchController = TextEditingController();
   int _selectedNavIndex = 0;
   bool _isSearchOpen = false;
+  bool _showOverdueOnly = false;
+
+  // ── REMINDER STATE ──────────────────────────────────────────
+  final ReminderScheduler _reminderScheduler = ReminderScheduler();
+  List<Reminder> _reminderLog = [];
+  List<CreditSale> _dueReminders = [];
 
   double get totalOutstanding =>
       _customers.fold(0.0, (sum, customer) => sum + customer.amountOwed);
@@ -50,8 +62,35 @@ class _DashboardPageState extends State<DashboardPage> {
       )
       .fold(0.0, (sum, payment) => sum + payment.amount);
 
+  // ── INIT / DISPOSE ──────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _startReminderScheduler();
+  }
+
+  Future<void> _startReminderScheduler() async {
+    _reminderLog = await ReminderService.loadLog();
+    if (!mounted) return;
+    _reminderScheduler.start(
+      invoices: () => _sales,
+      payments: () => _payments,
+      onDue: (due) {
+        if (!mounted) return;
+        setState(() => _dueReminders = due);
+      },
+    );
+    final due = ReminderService.dueForReminder(
+      invoices: _sales,
+      payments: _payments,
+      log: _reminderLog,
+    );
+    if (mounted) setState(() => _dueReminders = due);
+  }
+
   @override
   void dispose() {
+    _reminderScheduler.stop();
     searchController.dispose();
     super.dispose();
   }
@@ -123,6 +162,11 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 ? 'R${totalOverdue.toStringAsFixed(2)}'
                                                 : 'R0.00',
                                             color: const Color(0xFFDB3A3A),
+                                            onTap: () => setState(() {
+                                              _showOverdueOnly = true;
+                                              _selectedNavIndex = 2;
+                                              searchController.clear();
+                                            }),
                                           ),
                                         ),
                                       ],
@@ -149,6 +193,48 @@ class _DashboardPageState extends State<DashboardPage> {
                                         ),
                                       ),
                                     ),
+
+                                    // ── DUE REMINDERS BANNER ─────────────────
+                                    if (_dueReminders.isNotEmpty) ...[
+                                      const SizedBox(height: 18),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFF4D6),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE6C46A),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.notifications_active,
+                                              color: Color(0xFF8A6D00),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                '${_dueReminders.length} reminder${_dueReminders.length == 1 ? '' : 's'} due today',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF5D4700),
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: _runDueRemindersNow,
+                                              child: const Text('Send now'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+
                                     const SizedBox(height: 30),
                                     const Text(
                                       'NEEDS ATTENTION',
@@ -205,7 +291,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                                         fontSize: compact
                                                             ? 20
                                                             : 28,
-                                                        color: Color(
+                                                        color: const Color(
                                                           0xFF1D1D1D,
                                                         ),
                                                         fontWeight:
@@ -219,7 +305,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                                         fontSize: compact
                                                             ? 15
                                                             : 22,
-                                                        color: Color(
+                                                        color: const Color(
                                                           0xFF3A3A3A,
                                                         ),
                                                         fontWeight:
@@ -239,7 +325,9 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       fontSize: compact
                                                           ? 19
                                                           : 28,
-                                                      color: Color(0xFFE33A3A),
+                                                      color: const Color(
+                                                        0xFFE33A3A,
+                                                      ),
                                                       fontWeight:
                                                           FontWeight.w700,
                                                     ),
@@ -264,7 +352,39 @@ class _DashboardPageState extends State<DashboardPage> {
                                                         fontSize: compact
                                                             ? 14
                                                             : 16,
-                                                        color: Color(
+                                                        color: const Color(
+                                                          0xFF0E2C75,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  TextButton.icon(
+                                                    onPressed: () =>
+                                                        _showInvoiceSheet(
+                                                          customer,
+                                                        ),
+                                                    style: TextButton.styleFrom(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 2,
+                                                          ),
+                                                      minimumSize: Size.zero,
+                                                    ),
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .receipt_long_outlined,
+                                                      size: 17,
+                                                    ),
+                                                    label: Text(
+                                                      'Invoice',
+                                                      style: TextStyle(
+                                                        fontSize: compact
+                                                            ? 14
+                                                            : 16,
+                                                        color: const Color(
                                                           0xFF0E2C75,
                                                         ),
                                                         fontWeight:
@@ -323,8 +443,10 @@ class _DashboardPageState extends State<DashboardPage> {
                               label: 'Customers',
                               icon: Icons.people_alt_outlined,
                               selected: _selectedNavIndex == 2,
-                              onTap: () =>
-                                  setState(() => _selectedNavIndex = 2),
+                              onTap: () => setState(() {
+                                _selectedNavIndex = 2;
+                                _showOverdueOnly = false;
+                              }),
                             ),
                           ),
                         ],
@@ -367,6 +489,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildCustomersTab(BuildContext context, bool compact) {
     final query = searchController.text.trim().toLowerCase();
     final filteredCustomers = _customers.where((customer) {
+      if (_showOverdueOnly && !customer.dueDate.isBefore(DateTime.now())) {
+        return false;
+      }
       final items = _itemsForCustomer(customer).toLowerCase();
       return customer.name.toLowerCase().contains(query) ||
           customer.phone.toLowerCase().contains(query) ||
@@ -388,7 +513,7 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               Expanded(
                 child: Text(
-                  'Customers',
+                  _showOverdueOnly ? 'Overdue accounts' : 'Customers',
                   style: TextStyle(
                     fontSize: compact ? 26 : 34,
                     fontWeight: FontWeight.w800,
@@ -438,7 +563,9 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Text(
-                  _customers.isEmpty
+                  _showOverdueOnly
+                      ? 'No overdue accounts'
+                      : _customers.isEmpty
                       ? 'No customers added yet'
                       : 'No customers match your search',
                   style: const TextStyle(
@@ -590,6 +717,106 @@ class _DashboardPageState extends State<DashboardPage> {
     ),
   );
 
+  Future<void> _showReminderSheet(Customer customer) async {
+    final invoices = _unpaidSalesFor(customer);
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Send reminder',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              if (invoices.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No unpaid invoices to remind about.'),
+                )
+              else
+                ...invoices.map(
+                  (sale) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      sale.itemDescription.isEmpty
+                          ? 'Credit sale'
+                          : sale.itemDescription,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${_invoiceNumber(sale)} · ${_formatInvoiceDate(sale.saleDate)} · Balance ${_formatMoney(_balanceForSale(sale))}',
+                    ),
+                    trailing: Wrap(
+                      children: [
+                        IconButton(
+                          tooltip: 'Send by SMS',
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _sendMessage(
+                              customer,
+                              ReminderService.composeMessage(
+                                customer: customer,
+                                invoice: sale,
+                                payments: _payments,
+                              ),
+                              viaWhatsApp: false,
+                              contentLabel: 'reminder',
+                              invoiceForLog: sale,
+                              channelForLog: ReminderChannel.sms,
+                            );
+                          },
+                          icon: const Icon(Icons.sms_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Send by WhatsApp',
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _sendMessage(
+                              customer,
+                              ReminderService.composeMessage(
+                                customer: customer,
+                                invoice: sale,
+                                payments: _payments,
+                              ),
+                              viaWhatsApp: true,
+                              contentLabel: 'reminder',
+                              invoiceForLog: sale,
+                              channelForLog: ReminderChannel.whatsapp,
+                            );
+                          },
+                          icon: const Icon(Icons.chat_outlined),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _monthLabel(DateTime month) =>
+      ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month.month - 1];
+
+  String _formatMoney(double value) => 'R${value.toStringAsFixed(2)}';
+
+  String _formatInvoiceDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
   Widget _buildReportsTab(bool compact) {
     final now = DateTime.now();
     final months = List.generate(12, (index) {
@@ -735,8 +962,39 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
           ),
+
+          // ── DOWNLOAD BUSINESS REPORT (PDF) ────────────────────
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: OutlinedButton.icon(
+              onPressed: _downloadBusinessReport,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Download business report (PDF)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF202777),
+                side: const BorderSide(
+                  color: Color(0xFF202777),
+                  width: 1.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _downloadBusinessReport() async {
+    await PdfService.shareBusinessReport(
+      businessName: widget.businessName,
+      customers: List.unmodifiable(_customers),
+      sales: List.unmodifiable(_sales),
+      payments: List.unmodifiable(_payments),
     );
   }
 
@@ -804,6 +1062,7 @@ class _DashboardPageState extends State<DashboardPage> {
       }
       _sales.add(sale);
     });
+    _refreshDueReminders();
   }
 
   void _applyPayment(CreditPayment payment) {
@@ -827,60 +1086,237 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       }
     });
+    _refreshDueReminders();
   }
 
   bool _sameCustomer(Customer left, Customer right) =>
       left.name == right.name && left.phone == right.phone;
 
-  void _showReminderSheet(Customer customer) {
-    showModalBottomSheet(
+  bool _sameInvoice(CreditSale left, CreditSale right) =>
+      left.id.isNotEmpty && right.id.isNotEmpty
+      ? left.id == right.id
+      : identical(left, right);
+
+  List<CreditSale> _unpaidSalesFor(Customer customer) => _sales
+      .where(
+        (sale) =>
+            _sameCustomer(sale.customer, customer) && _balanceForSale(sale) > 0,
+      )
+      .toList();
+
+  double _balanceForSale(CreditSale sale) {
+    final paid = _payments
+        .where((payment) => _sameInvoice(payment.invoice, sale))
+        .fold(0.0, (sum, payment) => sum + payment.amount);
+    return (sale.amount - paid).clamp(0, double.infinity).toDouble();
+  }
+
+  String _invoiceNumber(CreditSale sale) =>
+      'INV-${sale.id.isEmpty ? sale.saleDate.microsecondsSinceEpoch : sale.id}';
+
+  String _invoiceMessage(Customer customer, CreditSale sale) {
+    final paid = sale.amount - _balanceForSale(sale);
+    return [
+      'Hello ${customer.name},',
+      'Invoice ${_invoiceNumber(sale)} from ${widget.businessName}.',
+      'Purchase: ${sale.itemDescription.isEmpty ? 'Credit sale' : sale.itemDescription}',
+      'Purchase date: ${_formatInvoiceDate(sale.saleDate)}',
+      'Original amount: ${_formatMoney(sale.amount)}',
+      'Paid: ${_formatMoney(paid)}',
+      'Outstanding amount due: ${_formatMoney(_balanceForSale(sale))}',
+      'Due date: ${_formatInvoiceDate(sale.dueDate)}',
+      'Thank you.',
+    ].join('\n');
+  }
+
+  Future<void> _sendMessage(
+    Customer customer,
+    String message, {
+    required bool viaWhatsApp,
+    required String contentLabel,
+    CreditSale? invoiceForLog,
+    ReminderChannel? channelForLog,
+  }) async {
+    if (customer.phone.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This customer has no phone number.')),
+      );
+      return;
+    }
+
+    final Uri uri;
+    if (viaWhatsApp) {
+      var phone = customer.phone.replaceAll(RegExp(r'\D'), '');
+      if (phone.startsWith('0')) phone = '27${phone.substring(1)}';
+      uri = Uri.https('wa.me', '/$phone', {'text': message});
+    } else {
+      uri = Uri(
+        scheme: 'sms',
+        path: customer.phone,
+        queryParameters: {'body': message},
+      );
+    }
+
+    bool launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open ${viaWhatsApp ? 'WhatsApp' : 'SMS'} to send the $contentLabel.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open ${viaWhatsApp ? 'WhatsApp' : 'SMS'} to send the $contentLabel.',
+            ),
+          ),
+        );
+      }
+    }
+
+    if (invoiceForLog != null && channelForLog != null) {
+      final reminder = Reminder(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        invoiceId: invoiceForLog.id,
+        customerId: ReminderService.stableCustomerId(customer),
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        channel: channelForLog,
+        status: launched ? ReminderStatus.sent : ReminderStatus.failed,
+        sentAt: DateTime.now(),
+        message: message,
+      );
+      await ReminderService.log(reminder);
+      await _reloadReminderLog();
+    }
+  }
+
+  Future<void> _reloadReminderLog() async {
+    final log = await ReminderService.loadLog();
+    if (!mounted) return;
+    setState(() => _reminderLog = log);
+    _refreshDueReminders();
+  }
+
+  void _refreshDueReminders() {
+    final due = ReminderService.dueForReminder(
+      invoices: _sales,
+      payments: _payments,
+      log: _reminderLog,
+    );
+    if (mounted) setState(() => _dueReminders = due);
+  }
+
+  Future<void> _runDueRemindersNow() async {
+    if (_dueReminders.isEmpty) return;
+    final snapshot = List<CreditSale>.from(_dueReminders);
+    for (final invoice in snapshot) {
+      final customer = invoice.customer;
+      final message = ReminderService.composeMessage(
+        customer: customer,
+        invoice: invoice,
+        payments: _payments,
+      );
+      await _sendMessage(
+        customer,
+        message,
+        viaWhatsApp: true,
+        contentLabel: 'reminder',
+        invoiceForLog: invoice,
+        channelForLog: ReminderChannel.whatsapp,
+      );
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Processed ${snapshot.length} reminder${snapshot.length == 1 ? '' : 's'}.',
+        ),
+      ),
+    );
+  }
+
+  void _showInvoiceSheet(Customer customer) {
+    final invoices = _unpaidSalesFor(customer);
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Send reminder',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                'Send invoice',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const Icon(Icons.sms, color: Color(0xFF0E2C75)),
-                title: const Text('SMS reminder'),
-                subtitle: Text('Send to ${customer.phone}'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('SMS reminder sent to ${customer.name}'),
+              const SizedBox(height: 12),
+              if (invoices.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No unpaid invoices to send.'),
+                )
+              else
+                ...invoices.map(
+                  (sale) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      sale.itemDescription.isEmpty
+                          ? 'Credit sale'
+                          : sale.itemDescription,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
-                title: const Text('WhatsApp reminder'),
-                subtitle: Text('Send to ${customer.phone}'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'WhatsApp reminder sent to ${customer.name}',
-                      ),
+                    subtitle: Text(
+                      '${_invoiceNumber(sale)} · ${_formatInvoiceDate(sale.saleDate)} · Balance ${_formatMoney(_balanceForSale(sale))}',
                     ),
-                  );
-                },
-              ),
+                    trailing: Wrap(
+                      children: [
+                        IconButton(
+                          tooltip: 'Send by SMS',
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _sendMessage(
+                              customer,
+                              _invoiceMessage(customer, sale),
+                              viaWhatsApp: false,
+                              contentLabel: 'invoice',
+                            );
+                          },
+                          icon: const Icon(Icons.sms_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Send by WhatsApp',
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _sendMessage(
+                              customer,
+                              _invoiceMessage(customer, sale),                              viaWhatsApp: true,
+                              contentLabel: 'invoice',
+                            );
+                          },
+                          icon: const Icon(Icons.chat_outlined),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -909,12 +1345,18 @@ class _ChartLegend extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
@@ -935,25 +1377,26 @@ class _MonthlyBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chartHeight = compact ? 138.0 : 188.0;
-    final height = value == 0
-        ? 4.0
-        : (value / maximum * chartHeight).clamp(4.0, chartHeight).toDouble();
-    return Tooltip(
-      message: _formatMoney(value),
-      child: Container(
-        width: compact ? 9 : 18,
-        height: height,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+    final ratio = maximum <= 0 ? 0.0 : value / maximum;
+    return SizedBox(
+      width: compact ? 12 : 18,
+      height: compact ? 180 : 220,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: FractionallySizedBox(
+          heightFactor: ratio,
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(10),
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
-}
-
-String _monthLabel(DateTime month) =>
-    month.month == 9 ? 'Sept' : Customer.monthName(month.month);
-
-String _formatMoney(double amount) => 'R${amount.toStringAsFixed(0)}';
+}                             
