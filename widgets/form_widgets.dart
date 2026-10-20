@@ -5,6 +5,7 @@ class StatCard extends StatelessWidget {
   final String value;
   final Color color;
   final bool compact;
+  final VoidCallback? onTap;
 
   const StatCard({
     super.key,
@@ -12,40 +13,45 @@ class StatCard extends StatelessWidget {
     required this.value,
     required this.color,
     this.compact = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      height: 138,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: RichText(
-          text: TextSpan(
-            style: const TextStyle(height: 1.1),
-            children: [
-              TextSpan(
-                text: '$value\n',
-                style: TextStyle(
-                  fontSize: compact ? 18 : 30,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        height: 138,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(height: 1.1),
+              children: [
+                TextSpan(
+                  text: '$value\n',
+                  style: TextStyle(
+                    fontSize: compact ? 18 : 30,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              TextSpan(
-                text: title,
-                style: TextStyle(
-                  fontSize: compact ? 15 : 26,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w400,
+                TextSpan(
+                  text: title,
+                  style: TextStyle(
+                    fontSize: compact ? 15 : 26,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -53,14 +59,66 @@ class StatCard extends StatelessWidget {
   }
 }
 
+class CreditBookBrandHeader extends StatelessWidget {
+  final bool compact;
+
+  const CreditBookBrandHeader({super.key, required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: compact ? 46 : 58,
+          height: compact ? 46 : 58,
+          decoration: const BoxDecoration(
+            color: Color(0xFF0D1D45),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.account_balance_wallet_rounded,
+            color: Colors.white,
+            size: compact ? 24 : 30,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'CreditBook',
+              style: TextStyle(
+                fontSize: compact ? 22 : 30,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0B2F86),
+              ),
+            ),
+            const Text(
+              'Smarter credit tracking',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF4E4E4E),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class NavItem extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool selected;
   final VoidCallback? onTap;
 
   const NavItem({
     super.key,
     required this.label,
+    this.icon,
     required this.selected,
     this.onTap,
   });
@@ -72,15 +130,32 @@ class NavItem extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: compact ? 14 : 22,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            color: const Color(0xFF0F2B7A),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: compact ? 22 : 28,
+                color: selected
+                    ? const Color(0xFF0F2B7A)
+                    : const Color(0xFF5B5B5B),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 14 : 22,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected
+                    ? const Color(0xFF0F2B7A)
+                    : const Color(0xFF5B5B5B),
+              ),
+            ),
+          ],
         ),
       ),
     );
