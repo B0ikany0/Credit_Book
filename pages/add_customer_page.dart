@@ -21,7 +21,9 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
   final notesController = TextEditingController();
   int selectedCustomerIndex = -1;
   DateTime saleDate = DateUtils.dateOnly(DateTime.now());
-  int dueInDays = 7;
+  DateTime dueDate = DateUtils.dateOnly(
+    DateTime.now().add(const Duration(days: 7)),
+  );
 
   bool get isNewCustomer => selectedCustomerIndex == -1;
 
@@ -212,55 +214,11 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
                           const SizedBox(height: 18),
                           _FieldLabel('Due date', compact: compact),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [7, 14, 30]
-                                .map(
-                                  (days) => Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        right: days == 30 ? 0 : 8,
-                                      ),
-                                      child: OutlinedButton(
-                                        onPressed: () =>
-                                            setState(() => dueInDays = days),
-                                        style: OutlinedButton.styleFrom(
-                                          minimumSize: Size.fromHeight(
-                                            compact ? 48 : 56,
-                                          ),
-                                          foregroundColor: dueInDays == days
-                                              ? Colors.white
-                                              : const Color(0xFF202777),
-                                          backgroundColor: dueInDays == days
-                                              ? const Color(0xFF202777)
-                                              : Colors.white,
-                                          side: const BorderSide(
-                                            color: Color(0xFF202777),
-                                            width: 1.5,
-                                          ),
-                                          shape: const StadiumBorder(),
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: compact ? 4 : 12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '$days days',
-                                          style: TextStyle(
-                                            fontSize: compact ? 14 : 18,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Due: ${_formatDate(saleDate.add(Duration(days: dueInDays)))} (${_dateBasis(saleDate)} + $dueInDays)',
-                            style: TextStyle(
-                              fontSize: compact ? 14 : 18,
-                              color: const Color(0xFF777777),
-                            ),
+                          _DateField(
+                            value:
+                                '${_formatDate(dueDate)} (${_dateLabel(dueDate)})',
+                            compact: compact,
+                            onTap: _pickDueDate,
                           ),
                           const SizedBox(height: 18),
                           _FieldLabel('Item (optional)', compact: compact),
@@ -320,7 +278,22 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
     if (picked != null) {
-      setState(() => saleDate = DateUtils.dateOnly(picked));
+      setState(() {
+        saleDate = DateUtils.dateOnly(picked);
+        if (dueDate.isBefore(saleDate)) dueDate = saleDate;
+      });
+    }
+  }
+
+  Future<void> _pickDueDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: dueDate.isBefore(saleDate) ? saleDate : dueDate,
+      firstDate: saleDate,
+      lastDate: saleDate.add(const Duration(days: 3650)),
+    );
+    if (picked != null) {
+      setState(() => dueDate = DateUtils.dateOnly(picked));
     }
   }
 
@@ -328,7 +301,6 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
     final saleAmount = amount;
     if (saleAmount == null || saleAmount <= 0) return;
 
-    final dueDate = saleDate.add(Duration(days: dueInDays));
     final customer =
         selectedCustomer ??
         Customer(
@@ -414,6 +386,3 @@ String _formatDate(DateTime date) =>
 
 String _dateLabel(DateTime date) =>
     DateUtils.isSameDay(date, DateTime.now()) ? 'today' : 'selected';
-
-String _dateBasis(DateTime date) =>
-    DateUtils.isSameDay(date, DateTime.now()) ? 'today' : 'sale date';
