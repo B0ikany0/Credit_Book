@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'help_feedback_page.dart';
-import 'login_page.dart';
+import 'login_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   final String ownerName;
