@@ -4,6 +4,7 @@ import '../models/credit_payment.dart';
 import '../models/credit_sale.dart';
 import '../models/customer.dart';
 import 'payment_pages.dart';
+import '../services/pdf_services.dart';
 
 typedef LogCustomerPayment = Future<CreditPayment?> Function(Customer customer);
 
@@ -143,7 +144,32 @@ class _CustomerStatementPageState extends State<CustomerStatementPage> {
                               fontSize: compact ? 13 : 16,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 58,
+                            child: OutlinedButton.icon(
+                              onPressed: () => PdfService.shareCustomerStatement(
+                                businessName: 'BB Market',
+                                customer: widget.customer,
+                                sales: _sales,
+                                payments: _customerPayments,
+                              ),
+                              icon: const Icon(Icons.picture_as_pdf_outlined),
+                              label: const Text('Download statement (PDF)'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF202777),
+                                side: const BorderSide(
+                                  color: Color(0xFF202777),
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
                             height: 62,
