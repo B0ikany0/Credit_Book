@@ -5,6 +5,7 @@ import '../models/credit_payment.dart';
 import '../models/credit_sale.dart';
 import '../models/customer.dart';
 import '../widgets/form_widgets.dart';
+import '../services/pdf_services.dart';
 
 class LogPaymentPage extends StatefulWidget {
   final List<Customer> customers;
@@ -401,6 +402,29 @@ class PaymentReceiptPage extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF168B48),
                                 foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 62,
+                            child: OutlinedButton.icon(
+                              onPressed: () => PdfService.sharePaymentReceipt(
+                                businessName: 'BB Market',
+                                payment: payment,
+                              ),
+                              icon: const Icon(Icons.picture_as_pdf_outlined),
+                              label: const Text('Download receipt (PDF)'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF202777),
+                                side: const BorderSide(
+                                  color: Color(0xFF202777),
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
                             ),
                           ),
