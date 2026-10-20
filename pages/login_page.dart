@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/credit_book_brand_header.dart';
+//import '../widgets/credit_book_brand_header.dart';
 import '../widgets/form_widgets.dart';
-import 'create_account_page.dart';
-import 'dashboard_page.dart';
-import 'forgot_password_page.dart';
+import '../pages/create_account_page.dart';
+import '../pages/dashboard_page.dart';
+import '../pages/forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
