@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web app
-        run: flutter build web --release --base-href "/Credit_Book/"
+        run: flutter build web --release --web-renderer html --base-href "/Credit_Book/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
